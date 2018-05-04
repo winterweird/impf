@@ -1,4 +1,4 @@
-module Eval where
+module Eval where -- how to execute/step logic lives here
 
 import Syntax
 import Primitive

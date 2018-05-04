@@ -1,4 +1,4 @@
-module Main where
+module Main where -- the entry point of the program lives here
 
 import Syntax
 import Parser

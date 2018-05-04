@@ -1,4 +1,4 @@
-module Syntax where
+module Syntax where -- types (Ast, etc) are found here
 
 import Data.IORef
 

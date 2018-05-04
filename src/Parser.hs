@@ -1,4 +1,4 @@
-module Parser (program, parse) where 
+module Parser (program, parse) where -- how to parse lives here (most of FIXMEs too)
 
 import Syntax
 import System.IO

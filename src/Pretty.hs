@@ -1,4 +1,4 @@
-module Pretty (pPrint) where
+module Pretty (pPrint) where -- pretty printing logic found here
 
 import Syntax
 import Prelude hiding ((<>))

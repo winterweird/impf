@@ -1,4 +1,4 @@
-module Primitive where
+module Primitive where -- primitive functions (like arithmetic ops) live here
 
 import Syntax
 import Control.Monad
