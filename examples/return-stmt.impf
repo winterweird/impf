@@ -1,0 +1,13 @@
+var difference = fun (left, right) {
+    if (left < right) return right-left; else;
+    if (right < left) return left-right; else;
+    return 0;
+};
+
+var a = 3;
+var b = 4;
+var c = 4;
+println(difference(a, b));
+println(difference(b, a));
+println(difference(b, c));
+println("");
