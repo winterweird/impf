@@ -101,7 +101,7 @@ step (f, env, ECall Hole args [] : ctx) | isValue f = return (ECall f args [], e
 step (ECall f (a:args) vs, env, ctx) | isValue f = return (a, env, ECall f (Hole:args) vs : ctx)
 step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (expr2val v : vs), env, ctx)
 
--- Return expression: return a value
+-- Return expression: evaluate to a value
 step (SReturn e, env, ctx) = return (e, env, SReturn Hole : ctx)
 step (v, env, SReturn Hole : ctx) | isValue v = return (v, env, ctx)
 step (v, _, SReturn Hole : _) = error $ "trying to return non-value " ++ (show v)
