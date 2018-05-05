@@ -1,0 +1,16 @@
+// testing that unary negation works (the parser we received does not handle it)
+println(-42); // prints -42
+
+// checking that variables can be negated
+var x = 20;
+x = -x;
+println(x) // prints -20
+
+// checking that references to variables can be negated
+var y = ref 10;
+y = -(*y);
+println(*y); // prints -10
+
+// checking that -0 = 0
+var z = 0;
+println(-z); // prints 0
