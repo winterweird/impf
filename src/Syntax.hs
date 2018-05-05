@@ -11,6 +11,7 @@ data Ast =
   | SAssign String Expr
   | SVarDecl String Expr
   | SExpr Expr
+  | SReturn Expr
 
   | EVal Value 
   | EVar String 

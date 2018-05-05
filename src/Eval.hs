@@ -34,11 +34,13 @@ step (v, env, SExpr Hole : ctx) | isValue v = return (SSkip, env, ctx)
 
 -- Blocks
 step (SBlock s, env, ctx) = return (s, env, (SBlock (HoleWithEnv env)) : ctx)
+step (SReturn v, _, SBlock (HoleWithEnv env) : ctx) = return (SReturn v, env, ctx) -- let the block return the value
 step (SSkip, _, SBlock (HoleWithEnv env) : ctx) = return (SSkip, env, ctx) -- restore environment when block closes
 
 -- Sequences
 step (SSeq s1 s2, env, ctx) = return (s1, env, SSeq Hole s2 : ctx)
-step (SSkip, env, SSeq Hole s2 : ctx) = return (s2, env, ctx)
+step (SReturn v, env, SSeq Hole s2 : ctx) = return (SReturn v, env, ctx) -- skip the rest of the sequence
+step (SSkip, env, SSeq Hole s2 : ctx) = return (s2, env, ctx) -- next step in sequence
 
 -- If and while
 step (SIf cond s1 s2, env, ctx) = return (cond, env, SIf Hole s1 s2 : ctx)
@@ -82,6 +84,8 @@ step (EFun pars body, env, ctx) = return (EVal $ VClosure pars body env, env, ct
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx) = do
   return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx)
+step (EVal v, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal v, env, ctx)
+  -- return statement executed in function
 step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal VVoid, env, ctx)
   -- function body fully evaluated, return VVoid
 
@@ -96,3 +100,8 @@ step (ECall f args [], env, ctx) | notValue f = return (f, env, ECall Hole args 
 step (f, env, ECall Hole args [] : ctx) | isValue f = return (ECall f args [], env, ctx)
 step (ECall f (a:args) vs, env, ctx) | isValue f = return (a, env, ECall f (Hole:args) vs : ctx)
 step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (expr2val v : vs), env, ctx)
+
+-- Return expression: return a value
+step (SReturn e, env, ctx) = return (e, env, SReturn Hole : ctx)
+step (v, env, SReturn Hole : ctx) | isValue v = return (v, env, ctx)
+step (v, _, SReturn Hole : _) = error $ "trying to return non-value " ++ (show v)

@@ -46,7 +46,7 @@ statement =
   ifStmt <|>
   whileStmt <|>
   block <|>
--- FIXME: returnStmt <|>
+  returnStmt <|>
 -- FIXME: tryStmt <|>
 -- FIXME: throwStmt <|>
 
@@ -82,7 +82,11 @@ varDeclStmt = do
   e <- expr
   semi
   return $ SVarDecl i e
--- FIXME returnStmt = ...
+returnStmt = do
+  reserved "return"
+  e <- expr
+  semi
+  return $ SReturn e
 -- FIXME tryStmt = ...
 -- FIXME throwStmt = ...
 exprStmt = do
