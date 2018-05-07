@@ -1,0 +1,6 @@
+try {
+    println("Hello world");
+}
+catch (e) {
+    println("abcde");
+}
