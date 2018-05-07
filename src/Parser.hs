@@ -47,7 +47,7 @@ statement =
   whileStmt <|>
   block <|>
   returnStmt <|>
--- FIXME: tryStmt <|>
+  tryStmt <|>
 -- FIXME: throwStmt <|>
 
   varDeclStmt <|>
@@ -87,7 +87,13 @@ returnStmt = do
   e <- expr
   semi
   return $ SReturn e
--- FIXME tryStmt = ...
+tryStmt = do
+  reserved "try"
+  t <- block
+  reserved "catch"
+  exName <- parens identifier
+  c <- block
+  return $ STry t c (EVar exName)
 -- FIXME throwStmt = ...
 exprStmt = do
   e <- expr

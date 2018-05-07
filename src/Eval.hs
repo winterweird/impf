@@ -105,3 +105,8 @@ step (v, env, ECall f (Hole:args) vs : ctx) | isValue v = return (ECall f args (
 step (SReturn e, env, ctx) = return (e, env, SReturn Hole : ctx)
 step (v, env, SReturn Hole : ctx) | isValue v = return (v, env, ctx)
 step (v, _, SReturn Hole : _) = error $ "trying to return non-value " ++ (show v)
+
+-- Try-catch statement: attempt to evaluate try (for the time being, until I
+-- have a throw statement)
+step (STry t c exName, env, ctx) = return (t, env, STry Hole c exName : ctx)
+step (SSkip, env, STry Hole _ _ : ctx) = return (SSkip, env, ctx)
