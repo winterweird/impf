@@ -48,7 +48,7 @@ statement =
   block <|>
   returnStmt <|>
   tryStmt <|>
--- FIXME: throwStmt <|>
+  throwStmt <|>
 
   varDeclStmt <|>
   assignStmt <|>
@@ -94,7 +94,11 @@ tryStmt = do
   exName <- parens identifier
   c <- block
   return $ STry t c (EVar exName)
--- FIXME throwStmt = ...
+throwStmt = do
+  reserved "throw"
+  e <- expr
+  semi
+  return $ SThrow e
 exprStmt = do
   e <- expr
   semi

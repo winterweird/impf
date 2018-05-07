@@ -13,6 +13,7 @@ data Ast =
   | SExpr Expr
   | SReturn Expr
   | STry Stmt Stmt Expr
+  | SThrow Expr
 
   | EVal Value 
   | EVar String 

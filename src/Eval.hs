@@ -35,11 +35,13 @@ step (v, env, SExpr Hole : ctx) | isValue v = return (SSkip, env, ctx)
 -- Blocks
 step (SBlock s, env, ctx) = return (s, env, (SBlock (HoleWithEnv env)) : ctx)
 step (SReturn v, _, SBlock (HoleWithEnv env) : ctx) = return (SReturn v, env, ctx) -- let the block return the value
+step (SThrow v, _, SBlock (HoleWithEnv env) : ctx) = return (SThrow v, env, ctx) -- exit block
 step (SSkip, _, SBlock (HoleWithEnv env) : ctx) = return (SSkip, env, ctx) -- restore environment when block closes
 
 -- Sequences
 step (SSeq s1 s2, env, ctx) = return (s1, env, SSeq Hole s2 : ctx)
 step (SReturn v, env, SSeq Hole s2 : ctx) = return (SReturn v, env, ctx) -- skip the rest of the sequence
+step (SThrow v, env, SSeq Hole s2 : ctx) = return (SThrow v, env, ctx)
 step (SSkip, env, SSeq Hole s2 : ctx) = return (s2, env, ctx) -- next step in sequence
 
 -- If and while
@@ -108,5 +110,13 @@ step (v, _, SReturn Hole : _) = error $ "trying to return non-value " ++ (show v
 
 -- Try-catch statement: attempt to evaluate try (for the time being, until I
 -- have a throw statement)
-step (STry t c exName, env, ctx) = return (t, env, STry Hole c exName : ctx)
+step (STry t c exName, env, ctx) | notValue t = return (t, env, STry Hole c exName : ctx)
 step (SSkip, env, STry Hole _ _ : ctx) = return (SSkip, env, ctx)
+step (val@(EVal v), env, STry Hole c var@(EVar exName) : ctx) = do
+  return (c, addVar exName v env, STry val (HoleWithEnv env) var : ctx)
+step (SSkip, _, STry _ (HoleWithEnv env) _ : ctx) = return (SSkip, env, ctx)
+
+-- Throw statement: evaluate expression, then unwrap until next STry
+step (SThrow e, env, ctx) = return (e, env, SThrow Hole : ctx)
+step (v, env, SThrow Hole : ctx) | isValue v = return (v, env, ctx) -- proceed to catch
+step (a, b, c) = error $ "Nonexhaustive pattern: \n" ++ (show a) ++ "\n" ++ (show b) ++ "\n" ++ (show c)
