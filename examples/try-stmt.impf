@@ -1,6 +1,7 @@
 try {
     println("Hello world");
     throw "There was a problem!";
+    println("Should not be printed!");
 }
 catch (e) {
     println("abcde");
