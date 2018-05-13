@@ -18,6 +18,8 @@ data Ast =
   | EVal Value 
   | EVar String 
   | EFun [String] Stmt 
+  | EShift Expr
+  | EReset Expr
   | ESpawn Expr
   | EDetach Expr
   | EJoin Expr
@@ -42,6 +44,7 @@ data Value =
   | VClosure [String] Stmt Env
   | VPrimFun ([Value] -> Value)
   | VPrimFunIO ([Value] -> IO Value)
+  | VCont Env [Ctx]
 
 isValue, notValue :: Ast -> Bool
 isValue (EVal _) = True

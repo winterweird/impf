@@ -132,8 +132,14 @@ fun = do
   return $ EFun pars body
 
 variable = identifier >>= return . EVar
--- FIXME resetExpr = do ...
--- FIXME shiftExpr = do ...
+resetExpr = do
+  reserved "reset"
+  f <- parens fun
+  return $ EReset f
+shiftExpr = do
+  reserved "shift"
+  f <- parens fun
+  return $ EShift f
 spawnExpr = do
   reserved "spawn"
   f <- parens fun
@@ -147,7 +153,7 @@ joinExpr = do
   tid <- parens expr
   return $ EJoin tid
 
-atomic = -- FIXME resetExpr <|> shiftExpr <|>
+atomic = resetExpr <|> shiftExpr <|>
          spawnExpr <|> detachExpr <|> joinExpr <|>
          variable <|> parens expr <|> deref
 atomicOrCall = do 
