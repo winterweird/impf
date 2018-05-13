@@ -1,0 +1,8 @@
+var f = fun (a, b) {
+    if (a > b) return a; else return b;
+};
+
+var x = f(1, 2);
+var y = f(2, 1);
+if (x == 2) println("OK"); else println("FAILFACE");
+if (y == 2) println("OK"); else println("FAILFACE");

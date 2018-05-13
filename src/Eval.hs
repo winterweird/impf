@@ -26,7 +26,7 @@ exec e = steps $ Thread Nothing e primitives [] []
 -- TODO: Checks for whether TID exists
 steps :: Thread -> IO ()
 steps t | completed t = return ()
-steps t = stepThread t t >>= steps t'
+steps t = stepThread t t >>= steps
 --                   ^ reference to main thread
 
 -- Sorry for this complicated mess. I've tried to comment it well. Essentially,
