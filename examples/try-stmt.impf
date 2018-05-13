@@ -1,9 +1,9 @@
 try {
     println("Hello world");
-    throw "There was a problem!";
-    println("Should not be printed!");
+    throw "This is the error message";
+    println("Fail");
 }
 catch (e) {
-    println("abcde");
     println(e);
+    println("OK");
 }
