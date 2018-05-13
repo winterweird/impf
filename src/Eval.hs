@@ -21,6 +21,8 @@ findVar s env =
 exec :: Ast -> IO ()
 exec e = steps (e, primitives, [])
 
+-- TODO: Checks for whether TID = same as current thread when calling join
+-- TODO: Checks for whether TID exists
 steps :: (Ast, Env, [Ctx]) -> IO ()
 steps (SSkip, _, []) = return ()
 steps st = step st >>= steps
