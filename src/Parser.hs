@@ -134,11 +134,21 @@ fun = do
 variable = identifier >>= return . EVar
 -- FIXME resetExpr = do ...
 -- FIXME shiftExpr = do ...
--- FIXME spawnExpr = do ...
--- FIXME detachExpr = do ...
--- FIXME joinExpr = do ...
+spawnExpr = do
+  reserved "spawn"
+  f <- parens fun
+  return $ ESpawn f
+detachExpr = do
+  reserved "detach"
+  tid <- parens expr
+  return $ EDetach tid
+joinExpr = do
+  reserved "join"
+  tid <- parens expr
+  return $ EJoin tid
 
-atomic = -- FIXME resetExpr <|> shiftExpr <|> spawnExpr <|> detachExpr <|> joinExpr <|>
+atomic = -- FIXME resetExpr <|> shiftExpr <|>
+         spawnExpr <|> detachExpr <|> joinExpr <|>
          variable <|> parens expr <|> deref
 atomicOrCall = do 
   a <- atomic
