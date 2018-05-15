@@ -3,6 +3,7 @@ module Eval where -- how to execute/step logic lives here
 import Syntax
 import Primitive
 import Pretty
+import Thread
 import Debug.Trace (trace)
 
 import Control.Monad
@@ -19,11 +20,13 @@ findVar s env =
   let (Just v) = lookup s env in v -- assumes that a variable is always found
 
 exec :: Ast -> IO ()
-exec e = steps (e, primitives, [])
+exec e = steps [Thread e primitives [] 0 Nothing]
 
-steps :: (Ast, Env, [Ctx]) -> IO ()
-steps (SSkip, _, []) = return ()
-steps st = step st >>= steps
+steps :: [Thread] -> IO ()
+steps ((Thread SSkip _ [] 0 Nothing):ts) = return ()
+steps (t:ts) = do -- TODO: handle steps correctly
+    (ast', env', ctx') <- step (ast t, env t, ctx t)
+    steps $ ts++[t{ast=ast', env=env', ctx=ctx'}]
 
 step :: (Ast, Env, [Ctx]) -> IO (Ast, Env, [Ctx])
 -- step (ast, e, c) | trace ((show ast) ++ "\n--\n" ++ show c ++ "\n") False = undefined
