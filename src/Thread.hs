@@ -16,43 +16,57 @@ import Data.Maybe (fromJust)
 -- the thread simply has ended.
 --
 -- Spawn puts a new Thread in the list of children threads.
-data Thread = Thread (Maybe Int) Ast Env [Ctx] [Thread] deriving Show
+data Thread = Thread { tid :: Tid
+                     , ast :: Ast
+                     , env :: Env
+                     , ctx :: [Ctx]
+                     , children :: [Thread]
+                     } deriving Show
+
+data Tid = MainThread 
+         | DetachedThread
+         | Tid Int
+         deriving Show
 
 instance Eq Thread where
-  Thread (Just tid1) _ _ _ _ == Thread (Just tid2) _ _ _ _ = tid1 == tid2
+  Thread (Tid tid1) _ _ _ _ == Thread (Tid tid2) _ _ _ _ = tid1 == tid2
   _ == _ = False -- just assume all other threads are unequal
 
 -- given a tid and a parent thread, return a thread tree exluding the thread
 -- with the given tid
-excluding :: Thread -> Maybe Int -> Thread
-excluding t@(Thread tid2 _ _ _ _) (Just tid1) | (Just tid1) /= tid2 = fromJust $ excluding' tid1 t
-  where excluding' tid (Thread (Just tid2) _ _ _ _) | tid == tid2 = Nothing
-        excluding' tid (Thread tid' ast env ctx ch) = Just $ Thread tid' ast env ctx $ 
-                   map fromJust $ filter (/=Nothing) $ map (excluding' tid) ch
-excluding t _ = t -- else, just return self
+excluding :: Thread -> Thread -> Thread
+excluding thread1 thread2 | thread1 == thread2 = error "Implementation error: cannot exclude self"
+excluding thread parent = let cs = filter (/=thread) (children parent) in
+    parent{children = map (excluding thread) cs}
+    
+-- helper function: return the thread where all subthreads to any level with the
+-- same tid as the new thread is replaced
+replacing :: Thread -> Thread -> Thread
+replacing newThread oldThread | newThread == oldThread = newThread
+replacing thread parent = parent{children=map (replacing thread) (children parent)}
 
+-- helper function: return whether a thread is finished running or not
+completed :: Thread -> Bool
+completed (Thread _ SSkip _ [] _) = True
+completed _ = False
+
+-- Helper function: given the main thread, get the next tid
+-- TODO: update to use getChildren instead of pattern matching
+-- Also, I'm never actually using tid...
+-- I think this is broken; TODO: fix
 nextTid :: Thread -> Int
-nextTid t = 1 + (nextTid' 0 t)
-    where nextTid' n (Thread tid _ _ _ children) = maximum $ n : (map (nextTid' n) children) 
-
--- helper function: get thread id of thread
-getTid :: Thread -> Maybe Int
-getTid (Thread tid _ _ _ _) = tid
-
--- helper function: get child processes of thread
-getChildren :: Thread -> [Thread]
-getChildren (Thread _ _ _ _ children) = children
+nextTid t = 1 + (maxTid 0 t) 
+    where maxTid n thread | tid thread == MainThread || tid thread == DetachedThread = n
+                          | null $ children thread = max n (tid thread) 
+                          | otherwise = max n (maximum $ map (maxTid n) (children thread))
 
 -- helper function: find the thread with the given tid if it exists in the
 -- thread tree, or otherwise Nothing
 findThread :: Int -> Thread -> Maybe Thread
-findThread tid1 t@(Thread tid2 ast env ctx children)
-  | (Just tid1) == tid2 = Just t
-  | null children = Nothing
-  | otherwise = case findThread tid1 (head children) of
-        Nothing -> findThread tid1 (Thread tid2 ast env ctx (tail children))
-        x -> x
+findThread tid1 t
+  | (Just tid1) == tid t = Just t
+  | null $ children t = Nothing
+  | otherwise = case findThread tid1 (head $ children t) of
 
-completed :: Thread -> Bool
-completed (Thread _ SSkip _ [] _) = True
-completed _ = False
+        Nothing -> findThread tid1 t{children=tail$children t}
+        x -> x

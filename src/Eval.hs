@@ -35,56 +35,56 @@ steps t = stepThread t t >>= steps
 -- removing all completed threads and their children from the hierarchy, and
 -- contains special cases for spawning, detaching and joining threads.
 stepThread :: Thread -> Thread -> IO Thread
-stepThread mainthread t@(Thread tid ast env ctx children) = case (ast, ctx) of
-        -- Case: spawn new thread
-        (v@(EVal (VClosure _ _ cloEnv)), ESpawn Hole : ctx) -> do
-            let tid' = nextTid mainthread -- compute new tid
-            
-            -- create thread
-            let newThread = Thread (Just tid') (SExpr (ECall v [] [])) cloEnv [] []
-            
-            -- add thread to children
-            return $ Thread tid (EVal (VInt tid')) env ctx (newThread:children)
+stepThread mainthread t = case (ast t, ctx t) of
+    -- Case: spawn new thread
+    (v@(EVal (VClosure _ _ cloEnv)), ESpawn Hole : ctx) -> do
+        let tid' = nextTid mainthread -- compute new tid
+        
+        -- create thread
+        let newThread = Thread (Just tid') (SExpr (ECall v [] [])) cloEnv [] []
 
-        -- Case: detach thread with given thread id
-        (v@(EVal (VInt tid')), EDetach Hole : ctx) -> do
-            -- find the thread to detach
-            let thread = findThread tid' mainthread
-            case thread of
-                Nothing -> -- thread does not exist
-                    error $ "Thread with tid " ++ (show tid') ++ " not found"
-                Just (Thread _ ast' env' ctx' children') -> do
-                    -- create thread in detached state
-                    let nt = Thread Nothing ast' env' ctx' children'
+        print newThread
+        
+        return $ mainthread `replacing` t{ ast=EVal(VInt tid')
+                                         , children=newThread:(children t)
+                                         , ctx=ctx}
 
-                    -- compute children with the detached thread removed from
-                    -- the hierarchy
-                    let childrenExceptThread = getChildren (mainthread `excluding` (Just tid'))
-
-                    -- TODO: test detaching from a child thread (may not work)
-                    return $ Thread tid (EVal VVoid) env ctx $ childrenExceptThread ++ [nt]
-
-        -- Case: wait for a thread to complete
-        (v@(EVal (VInt tid')), EJoin Hole : ctx') -> case findThread tid' mainthread of
-            Nothing -> do -- assume the thread is completed
-                return $ Thread tid (EVal VVoid) env ctx' children -- let this thread continue
-            _ -> do
-                -- advance all child threads
-                chsteps <- mapM (stepThread mainthread) children
+    -- Case: detach thread with given thread id
+    (EVal (VInt tid'), EDetach Hole : ctx) -> do
+        -- find the thread to detach
+        let thread = findThread tid' mainthread
+        case thread of
+            Nothing -> do-- thread does not exist
+                print $ children mainthread
+                error $ "Thread with tid " ++ (show tid') ++ " not found"
+            Just theThread -> do
+                -- create thread in detached state
+                let nt = theThread{tid=Nothing}
+                let cs = children $ excluding theThread mainthread
+                return mainthread{children=nt:cs}
                 
-                -- do not advance this thread
-                return $ Thread tid ast env ctx $ filter (not . completed) chsteps
-
-        -- Default: advance self and all child threads
+    -- Case: wait for a thread to complete
+    (EVal (VInt tid'), EJoin Hole : ctx) -> case findThread tid' mainthread of
+        Nothing -> do -- assume the thread is completed
+            return $ replacing t{ast=EVal VVoid, ctx=ctx} mainthread
         _ -> do
-            -- compute step for this thread
-            (ast', env', ctx') <- step (ast, env, ctx)
-            
+            error "I don't have this part figured out yet"
             -- advance all child threads
-            chsteps <- mapM (stepThread mainthread) children
+            chsteps <- mapM (stepThread mainthread) $ children t
             
-            -- return the new version of the thread
-            return $ Thread tid ast' env' ctx' $ filter (not . completed) chsteps
+            -- do not advance this thread
+            return $ t{children=filter(not.completed)chsteps}
+
+    -- Default: advance self and all child threads
+    _ -> do
+        -- compute step for this thread
+        (ast', env', ctx') <- step (ast t, env t, ctx t)
+        
+        -- advance all child threads
+        chsteps <- mapM (stepThread mainthread) $ children t
+        
+        -- return the new version of the thread
+        return $ Thread (tid t) ast' env' ctx' $ filter (not . completed) chsteps
 
 step :: (Ast, Env, [Ctx]) -> IO (Ast, Env, [Ctx])
 -- step (ast, e, c) | trace ((show ast) ++ "\n--\n" ++ show c ++ "\n") False = undefined
@@ -143,6 +143,8 @@ step (EFun pars body, env, ctx) = return (EVal $ VClosure pars body env, env, ct
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx) = do
   return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx)
+step (ECall (EVal (VCont contEnv contCtx)) [] [], env, ctx) = do
+  error "No handling of ecall for vcont yet"
 step (EVal v, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal v, env, ctx)
   -- return statement executed in function
 step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal VVoid, env, ctx)
@@ -180,6 +182,15 @@ step (SThrow v, env, SSeq Hole s2 : ctx) = return (SThrow v, env, ctx)
 step (SThrow e, env, ctx) = return (e, env, SThrow Hole : ctx)
 step (v, env, SThrow Hole : ctx) | isValue v = return (v, env, ctx) -- proceed to catch
 
+-- Reset expression: evaluate the function to a closure
+step (EReset f, env, ctx) = return (f, env, EReset Hole : ctx)
+step v@(EVal (VClosure pars s cloEnv), env, EReset Hole : ctx) = do
+  return (ECall (EVal (VCont cloEnv ctx)) [] [], env, ctx)
+
+-- Shift expression: evaluate the function to a closure
+step (EShift f, env, ctx) = return (f, env, EShift Hole : ctx)
+step (EVal (VClosure pars s cloEnv), env, EShift Hole : ctx) = error "Not yet implemented: shift"
+
 -- Spawn expression: compute the closure, and spawn new thread in steps
 step (ESpawn f, env, ctx) = return (f, env, ESpawn Hole : ctx)
 step (EVal (VClosure _ _ _), _, ESpawn Hole : _) = error "Spawn should be handled in steps"
@@ -191,6 +202,9 @@ step (EVal (VInt _), _, EDetach Hole : _) = error "Detach should be handled in s
 -- Join expression: compute the tid, and join in steps
 step (EJoin e, env, ctx) = return (e, env, EJoin Hole : ctx)
 step (EVal (VInt _), _, EJoin Hole : _) = error "Join should be handled in steps"
+
+
+
 
 -- Print what went wrong
 step (a, b, c) = error $ "Nonexhaustive pattern: \n" ++ (show a) ++ "\n" ++ (show b) ++ "\n" ++ (show c)
