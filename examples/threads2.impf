@@ -1,0 +1,14 @@
+println("Starting main");
+
+var tid1 = spawn(fun() {
+    var tid2 = spawn(fun() {
+        println("Starting t2");
+        loop(100);
+        println("Ending t2");
+    });
+    detach(tid2);
+});
+
+join(tid1);
+
+println("Ending main");
