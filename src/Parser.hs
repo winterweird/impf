@@ -142,7 +142,7 @@ shiftExpr = do
   return $ EShift f
 spawnExpr = do
   reserved "spawn"
-  f <- parens fun
+  f <- parens expr
   return $ ESpawn f
 detachExpr = do
   reserved "detach"

@@ -20,71 +20,50 @@ findVar s env =
   let (Just v) = lookup s env in v -- assumes that a variable is always found
 
 exec :: Ast -> IO ()
-exec e = steps $ Thread Nothing e primitives [] []
+exec e = steps [Thread e primitives [] 0 Nothing]
 
--- TODO: Checks for whether TID = same as current thread when calling join
--- TODO: Checks for whether TID exists
-steps :: Thread -> IO ()
-steps t | completed t = return ()
-steps t = stepThread t t >>= steps
---                   ^ reference to main thread
+steps :: [Thread] -> IO ()
+steps [] = error "Implementation error: No threads"
+steps ((Thread SSkip _ [] 0 Nothing):ts) = return ()
+steps st@(t:ts) = case (ast t, ctx t) of
+    -- case: thread completed
+    (SSkip, []) -> do -- remove children threads
+        steps $ filter ((/=(Just $ tid t)) . parent) ts
+    
+    -- case: spawning a new thread
+    (v@(EVal (VClosure [] _ cloEnv)), ESpawn Hole : ctx) -> do
+        let nextTid = 1 + (maximum $ map tid st) 
+        let newThread = Thread (SExpr $ ECall v [] []) cloEnv [] nextTid (Just $ tid t)
+        steps $ (newThread:t{ast=EVal (VInt nextTid), ctx=ctx}:ts)
 
--- Sorry for this complicated mess. I've tried to comment it well. Essentially,
--- the function takes a reference to the main thread and in the regular case,
--- takes one step for itself and advances all child threads one step as well,
--- removing all completed threads and their children from the hierarchy, and
--- contains special cases for spawning, detaching and joining threads.
-stepThread :: Thread -> Thread -> IO Thread
-stepThread mainthread t = case (ast t, ctx t) of
-    -- Case: spawn new thread
-    (v@(EVal (VClosure _ _ cloEnv)), ESpawn Hole : ctx) -> do
-        let tid' = nextTid mainthread -- compute new tid
+    -- case: trying to spawn thread with function taking arguments
+    (EVal (VClosure _ _ _), ESpawn Hole : _) -> do
+        error "Cannot spawn thread using non-nullary function"
+
+    -- case: detaching a thread
+    (EVal (VInt threadId), EDetach Hole : ctx) -> do
+        let thisThread = t{ast=EVal VVoid, ctx=ctx} -- evaluate step in this thread
         
-        -- create thread
-        let newThread = Thread (Just tid') (SExpr (ECall v [] [])) cloEnv [] []
-
-        print newThread
+        let matching = filter ((==threadId) . tid) st -- all threads with tid = threadId
         
-        return $ mainthread `replacing` t{ ast=EVal(VInt tid')
-                                         , children=newThread:(children t)
-                                         , ctx=ctx}
+        if length matching /= 1 then do
+            error $ "Couldn't detach unique thread with id " ++ (show threadId)
+        else do
+            let detachedThread = head $ matching -- should be just one
+            let remaining = map (\x -> if x == thisThread then thisThread else x) $
+                            filter (/=detachedThread) st
+            steps $ detachedThread{parent=Nothing}:remaining
 
-    -- Case: detach thread with given thread id
-    (EVal (VInt tid'), EDetach Hole : ctx) -> do
-        -- find the thread to detach
-        let thread = findThread tid' mainthread
-        case thread of
-            Nothing -> do-- thread does not exist
-                print $ children mainthread
-                error $ "Thread with tid " ++ (show tid') ++ " not found"
-            Just theThread -> do
-                -- create thread in detached state
-                let nt = theThread{tid=Nothing}
-                let cs = children $ excluding theThread mainthread
-                return mainthread{children=nt:cs}
-                
-    -- Case: wait for a thread to complete
-    (EVal (VInt tid'), EJoin Hole : ctx) -> case findThread tid' mainthread of
-        Nothing -> do -- assume the thread is completed
-            return $ replacing t{ast=EVal VVoid, ctx=ctx} mainthread
-        _ -> do
-            error "I don't have this part figured out yet"
-            -- advance all child threads
-            chsteps <- mapM (stepThread mainthread) $ children t
-            
-            -- do not advance this thread
-            return $ t{children=filter(not.completed)chsteps}
-
-    -- Default: advance self and all child threads
+    -- case: joining a thread
+    (EVal (VInt threadId), EJoin Hole : ctx) -> do
+        let matching = filter ((==threadId) . tid) st -- all threads with given tid
+        if length matching > 0 then steps $ ts ++ [t] -- don't advance this thread
+        else steps $ ts ++ [t{ast=EVal VVoid, ctx=ctx}]
+        
+    -- case: anything else
     _ -> do
-        -- compute step for this thread
         (ast', env', ctx') <- step (ast t, env t, ctx t)
-        
-        -- advance all child threads
-        chsteps <- mapM (stepThread mainthread) $ children t
-        
-        -- return the new version of the thread
-        return $ Thread (tid t) ast' env' ctx' $ filter (not . completed) chsteps
+        steps $ ts++[t{ast=ast', env=env', ctx=ctx'}] -- put thread in the back of queue
 
 step :: (Ast, Env, [Ctx]) -> IO (Ast, Env, [Ctx])
 -- step (ast, e, c) | trace ((show ast) ++ "\n--\n" ++ show c ++ "\n") False = undefined
@@ -206,5 +185,6 @@ step (EVal (VInt _), _, EJoin Hole : _) = error "Join should be handled in steps
 
 
 
--- Print what went wrong
+
+
 step (a, b, c) = error $ "Nonexhaustive pattern: \n" ++ (show a) ++ "\n" ++ (show b) ++ "\n" ++ (show c)
