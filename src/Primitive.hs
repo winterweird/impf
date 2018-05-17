@@ -13,8 +13,8 @@ primitives = [
       [VBool x, VBool y] -> VBool $ x == y
       [VInt x, VInt y] -> VBool $ x == y),
   ("__b!=", VPrimFun $ \args -> case args of
-      [VBool x, VBool y] -> VBool $ x == y
-      [VInt x, VInt y] -> VBool $ x == y),
+      [VBool x, VBool y] -> VBool $ x /= y
+      [VInt x, VInt y] -> VBool $ x /= y),
   ("__b<", VPrimFun $ \[VInt x, VInt y] -> VBool $ x < y), 
   ("__b<=", VPrimFun $ \[VInt x, VInt y] -> VBool $ x <= y), 
   ("__b>", VPrimFun $ \[VInt x, VInt y] -> VBool $ x > y), 
