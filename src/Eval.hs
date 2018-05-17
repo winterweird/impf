@@ -119,11 +119,31 @@ step (v, env, EDeref Hole : ctx) | isValue v = do
 -- Function becomes a closure
 step (EFun pars body, env, ctx) = return (EVal $ VClosure pars body env, env, ctx)
 
+
+-- NOTE: Put these here to have them near the ECall definition
+
+-- Reset expression: evaluate the function to a closure
+step (EReset f, env, ctx) = return (f, env, EReset Hole : ctx)
+step (v@(EVal (VClosure pars s cloEnv)), env, EReset Hole : ctx) = do
+  -- just call the function, but put a marker in the context
+  return (ECall v [] [], env, EVal (VCont cloEnv ctx) : ctx)
+
+-- Shift expression: evaluate the function to a closure
+step (EShift f, env, ctx) = return (f, env, EShift Hole : ctx)
+step (v@(EVal (VClosure [x] s cloEnv)), env, EShift Hole : ctx) = do
+  return (ECall (EVal (VClosure [x] s (addVar x (VCont cloEnv ctx) cloEnv))) [] [], env, ctx)
+
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx) = do
   return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx)
-step (ECall (EVal (VCont contEnv contCtx)) [] [], env, ctx) = do
-  error "No handling of ecall for vcont yet"
+step (ECall (EVal (VCont contEnv contCtx)) [x] [], env, ctx) = do
+  -- putStrLn "CTX:"
+  -- print ctx
+  -- putStrLn "CONTCTX:"
+  -- print contCtx
+  -- (x', env', ctx') <- step(x, contEnv, contCtx)
+  -- putStrLn $ "XPrime: " ++ (show x')
+  return (x, env, ctx) -- at this point I'm just dropping the ctx
 step (EVal v, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal v, env, ctx)
   -- return statement executed in function
 step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal VVoid, env, ctx)
@@ -160,15 +180,6 @@ step (SThrow v, _, SBlock (HoleWithEnv env) : ctx) = return (SThrow v, env, ctx)
 step (SThrow v, env, SSeq Hole s2 : ctx) = return (SThrow v, env, ctx)
 step (SThrow e, env, ctx) = return (e, env, SThrow Hole : ctx)
 step (v, env, SThrow Hole : ctx) | isValue v = return (v, env, ctx) -- proceed to catch
-
--- Reset expression: evaluate the function to a closure
-step (EReset f, env, ctx) = return (f, env, EReset Hole : ctx)
-step v@(EVal (VClosure pars s cloEnv), env, EReset Hole : ctx) = do
-  return (ECall (EVal (VCont cloEnv ctx)) [] [], env, ctx)
-
--- Shift expression: evaluate the function to a closure
-step (EShift f, env, ctx) = return (f, env, EShift Hole : ctx)
-step (EVal (VClosure pars s cloEnv), env, EShift Hole : ctx) = error "Not yet implemented: shift"
 
 -- Spawn expression: compute the closure, and spawn new thread in steps
 step (ESpawn f, env, ctx) = return (f, env, ESpawn Hole : ctx)
