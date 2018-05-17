@@ -23,10 +23,47 @@ exec :: Ast -> IO ()
 exec e = steps [Thread e primitives [] 0 Nothing]
 
 steps :: [Thread] -> IO ()
+steps [] = error "Implementation error: No threads"
 steps ((Thread SSkip _ [] 0 Nothing):ts) = return ()
-steps (t:ts) = do -- TODO: handle steps correctly
-    (ast', env', ctx') <- step (ast t, env t, ctx t)
-    steps $ ts++[t{ast=ast', env=env', ctx=ctx'}]
+steps st@(t:ts) = case (ast t, ctx t) of
+    -- case: thread completed
+    (SSkip, []) -> do -- remove children threads
+        steps $ filter ((/=(Just $ tid t)) . parent) ts
+    
+    -- case: spawning a new thread
+    (v@(EVal (VClosure [] _ cloEnv)), ESpawn Hole : ctx) -> do
+        let nextTid = 1 + (maximum $ map tid st) 
+        let newThread = Thread (SExpr $ ECall v [] []) cloEnv [] nextTid (Just $ tid t)
+        steps $ (newThread:t{ast=EVal (VInt nextTid), ctx=ctx}:ts)
+
+    -- case: trying to spawn thread with function taking arguments
+    (EVal (VClosure _ _ _), ESpawn Hole : _) -> do
+        error "Cannot spawn thread using non-nullary function"
+
+    -- case: detaching a thread
+    (EVal (VInt threadId), EDetach Hole : ctx) -> do
+        let thisThread = t{ast=EVal VVoid, ctx=ctx} -- evaluate step in this thread
+        
+        let matching = filter ((==threadId) . tid) st -- all threads with tid = threadId
+        
+        if length matching /= 1 then do
+            error $ "Couldn't detach unique thread with id " ++ (show threadId)
+        else do
+            let detachedThread = head $ matching -- should be just one
+            let remaining = map (\x -> if x == thisThread then thisThread else x) $
+                            filter (/=detachedThread) st
+            steps $ detachedThread{parent=Nothing}:remaining
+
+    -- case: joining a thread
+    (EVal (VInt threadId), EJoin Hole : ctx) -> do
+        let matching = filter ((==threadId) . tid) st -- all threads with given tid
+        if length matching > 0 then steps $ ts ++ [t] -- don't advance this thread
+        else steps $ ts ++ [t{ast=EVal VVoid, ctx=ctx}]
+        
+    -- case: anything else
+    _ -> do
+        (ast', env', ctx') <- step (ast t, env t, ctx t)
+        steps $ ts++[t{ast=ast', env=env', ctx=ctx'}] -- put thread in the back of queue
 
 step :: (Ast, Env, [Ctx]) -> IO (Ast, Env, [Ctx])
 -- step (ast, e, c) | trace ((show ast) ++ "\n--\n" ++ show c ++ "\n") False = undefined
@@ -122,4 +159,16 @@ step (SSkip, _, STry _ (HoleWithEnv env) _ : ctx) = return (SSkip, env, ctx)
 -- Throw statement: evaluate expression, then unwrap until next STry
 step (SThrow e, env, ctx) = return (e, env, SThrow Hole : ctx)
 step (v, env, SThrow Hole : ctx) | isValue v = return (v, env, ctx) -- proceed to catch
+
+step (ESpawn f, env, ctx) = return (f, env, ESpawn Hole : ctx)
+
+step (EDetach e, env, ctx) = return (e, env, EDetach Hole : ctx)
+
+step (EJoin e, env, ctx) = return (e, env, EJoin Hole : ctx)
+
+
+
+
+
+
 step (a, b, c) = error $ "Nonexhaustive pattern: \n" ++ (show a) ++ "\n" ++ (show b) ++ "\n" ++ (show c)

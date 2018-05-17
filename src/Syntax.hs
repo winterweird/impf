@@ -21,6 +21,9 @@ data Ast =
   | ECall Expr [Expr] [Value] 
   | ERef Expr 
   | EDeref Expr
+  | ESpawn Expr
+  | EDetach Expr
+  | EJoin Expr
 
   | Hole
   | HoleWithEnv Env
