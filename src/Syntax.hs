@@ -65,3 +65,5 @@ instance Show Value where
   show (VClosure _ _ _) = "closure"
   show (VPrimFun _) = "prim-fun"
   show (VPrimFunIO _) = "prim-fun io"
+  show (VCont _ _) = "continuation"
+
