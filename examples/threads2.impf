@@ -1,12 +1,16 @@
+var loop = fun (n) { var c = ref 0; while (*c < n) c = *c + 1; };
+
 println("Starting main");
 
 var tid1 = spawn(fun() {
+    println("Starting t1");
     var tid2 = spawn(fun() {
         println("Starting t2");
         loop(100);
         println("Ending t2");
     });
     detach(tid2);
+    println("Ending t1");
 });
 
 join(tid1);
