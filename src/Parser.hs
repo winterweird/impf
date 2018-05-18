@@ -15,7 +15,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if else while fun ref return try catch finally reset shift spawn detach join"
+           , Token.reservedNames   = words "true false var if else while break continue fun ref return try catch finally reset shift spawn detach join"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -51,6 +51,8 @@ statement =
   tryStmtWithFinally <|>
   tryStmt <|>
   throwStmt <|>
+  breakStmt <|>
+  continueStmt <|>
 
   varDeclStmt <|>
   assignStmt <|>
@@ -113,6 +115,16 @@ exprStmt = do
   e <- expr
   semi
   return $ SExpr e
+
+-- break and continue statements
+breakStmt = do
+  reserved "break"
+  semi
+  return SBreak
+continueStmt = do
+  reserved "continue"
+  semi
+  return SContinue
 
 expr = conjunction `chainl1` binOp "||"
 conjunction = relation `chainl1` binOp "&&"

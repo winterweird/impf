@@ -8,6 +8,8 @@ data Ast =
   | SWhile Expr Stmt
   | SBlock Stmt
   | SSeq Stmt Stmt
+  | SBreak
+  | SContinue
   | SAssign String Expr
   | SVarDecl String Expr
   | SExpr Expr

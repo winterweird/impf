@@ -211,6 +211,14 @@ step (SThrow v, env, SSeq Hole s2 : ctx) = return (SThrow v, env, ctx)
 step (SThrow e, env, ctx) = return (e, env, SThrow Hole : ctx)
 step (v, env, SThrow Hole : ctx) | isValue v = return (v, env, ctx) -- proceed to catch
 
+-- Break statement: unwind context until end of while, then drop while
+step (SBreak, env, SSeq _ (SWhile _ _) : ctx) = return (SSkip, env, ctx)
+step (SBreak, env, _ : ctx) = return (SBreak, env, ctx)
+
+-- Continue statement: unwind context until end of while, then pick it up again
+step (SContinue, env, SSeq Hole w@(SWhile _ _) : ctx) = return (SSeq SSkip w, env, ctx)
+step (SContinue, env, _ : ctx) = return (SContinue, env, ctx)
+
 -- Spawn expression: compute the closure, and spawn new thread in steps
 step (ESpawn f, env, ctx) = return (f, env, ESpawn Hole : ctx)
 step (EVal (VClosure _ _ _), _, ESpawn Hole : _) = error "Spawn should be handled in steps"
