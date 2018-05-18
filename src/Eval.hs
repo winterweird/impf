@@ -119,6 +119,9 @@ step (v, env, EDeref Hole : ctx) | isValue v = do
 -- Function becomes a closure
 step (EFun pars body, env, ctx) = return (EVal $ VClosure pars body env, env, ctx)
 
+-- Negation of an integer value
+step (ENegation e, env, ctx) = return (e, env, ENegation Hole : ctx)
+step ((EVal (VInt x)), env, ENegation Hole : ctx) = return (EVal (VInt (-x)), env, ctx)
 
 -- NOTE: Put these here to have them near the ECall definition
 

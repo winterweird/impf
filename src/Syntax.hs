@@ -18,6 +18,7 @@ data Ast =
   | EVal Value 
   | EVar String 
   | EFun [String] Stmt 
+  | ENegation Expr
   | EShift Expr
   | EReset Expr
   | ESpawn Expr

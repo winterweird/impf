@@ -117,8 +117,9 @@ exprStmt = do
 expr = conjunction `chainl1` binOp "||"
 conjunction = relation `chainl1` binOp "&&"
 relation = do
-  l <- summation
+  l <- (negation <|> summation)
   (anyBinOp (words "== != < <= > >=") >>= \o -> summation >>= \r -> return $ o l r) <|> return l
+  
 summation = term `chainl1` anyBinOp (words "+ -")
 term = factor `chainl1` anyBinOp (words "* / %")
 factor = literal <|> fun <|> atomicOrCall <|> ref 
@@ -132,6 +133,7 @@ ref = reserved "ref" >> factor >>= \e -> return $ ERef e
 deref = reservedOp "*" >> atomic >>= \e -> return $ EDeref e
 
 binOp s = reservedOp s >> (return $ (\a b -> ECall (EVar ("__b" ++ s)) [a, b] []))
+negation = reservedOp "-" >> (atomic <|> intLiteral) >>= \e -> return $ ENegation e
 
 anyBinOp ops = foldl1 (<|>) (map binOp ops)
 
