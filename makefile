@@ -40,3 +40,6 @@ test: output
 	  -exec rm {} \; \
 	  -exec echo -en "$(GREEN)OK:$(WHITE) " \; \
 	  -exec echo {} \;
+
+export: build
+	zip impf.zip src/* examples/* README.md makefile
