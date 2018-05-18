@@ -1,0 +1,16 @@
+var f = fun(shouldThrow) {
+  try {
+    println(shouldThrow);
+    if (shouldThrow) {
+        throw "Error message";
+    } else ;
+    println("No exception thrown");
+  } catch (e) {
+    println(e);
+  } finally {
+    println("This should always be printed");
+  }
+};
+
+f(true);
+f(false);
