@@ -4,7 +4,10 @@ import Syntax
 import Control.Monad
 
 primitives = [
-  ("__b+", VPrimFun $ \[VInt x, VInt y] -> VInt $ x + y), 
+  ("__b+", VPrimFun $ \[x, y] -> case (x, y) of
+    (VInt a, VInt b) -> VInt $ a + b
+    (a, b) -> VString $ (show a) ++ (show b)), 
+  ("__b+", VPrimFun $ \[x, y] -> VString $ (show x) ++ (show y)),
   ("__b-", VPrimFun $ \[VInt x, VInt y] -> VInt $ x - y), 
   ("__b*", VPrimFun $ \[VInt x, VInt y] -> VInt $ x * y), 
   ("__b/", VPrimFun $ \[VInt x, VInt y] -> VInt $ x `div` y),
