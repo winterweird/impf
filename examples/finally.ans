@@ -1,0 +1,6 @@
+True
+Error message
+This should always be printed
+False
+No exception thrown
+This should always be printed
