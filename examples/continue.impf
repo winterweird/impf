@@ -1,8 +1,9 @@
 var i = ref 0;
 while (*i < 10) {
-  println(*i);
   i = *i+1;
-  if (*i == 5) {
+  if (*i % 2 == 0) {
     continue;
-  } else ;
+  }
+  println(*i);
 }
+println("Loop is done");

@@ -6,3 +6,4 @@ while (*i < 10) {
     break;
   } else ;
 }
+println("Loop is done");
