@@ -126,24 +126,46 @@ step (EFun pars body, env, ctx) = return (EVal $ VClosure pars body env, env, ct
 step (EReset f, env, ctx) = return (f, env, EReset Hole : ctx)
 step (v@(EVal (VClosure pars s cloEnv)), env, EReset Hole : ctx) = do
   -- just call the function, but put a marker in the context
-  return (ECall v [] [], env, EVal (VCont cloEnv ctx) : ctx)
+  return (ECall v [] [], env, EReset (HoleWithEnv env) : ctx) -- keep the EReset as a marker
+step (EVal v, env, EReset _ : ctx) = do
+  -- pop off the marker
+  return (EVal v, env, ctx)
 
 -- Shift expression: evaluate the function to a closure
 step (EShift f, env, ctx) = return (f, env, EShift Hole : ctx)
 step (v@(EVal (VClosure [x] s cloEnv)), env, EShift Hole : ctx) = do
-  return (ECall (EVal (VClosure [x] s (addVar x (VCont cloEnv ctx) cloEnv))) [] [], env, ctx)
+  let cont = VCont cloEnv ctx
+  let contEnv = addVar x cont env -- put the continuation param in env
+  return (ECall v [EVar x] [], contEnv, EShift Hole : ctx)
+step (v@(EVal (VCont contEnv contCtx)), env, EShift Hole : ctx) = do
+  let remainingCtx = tail $  dropWhile (\x -> case x of {EReset _ -> False; _ -> True}) ctx
+  case head remainingCtx of
+    ECall Hole args vs -> do
+      return (ECall v args vs, env, tail remainingCtx)
+    _ -> do
+      error "There was a problem unwinding the shift/reset stack"
+
+-- Call with continuation and parameter
+step (ECall (EVal cont@(VCont contEnv contCtx)) [] [a], env, ctx) = do
+  (cont', env', ctx') <- step (EVal a, contEnv, contCtx)
+  return (ECall (EVal (VCont env' ctx')) [] [], env, cont' : ctx)
+-- Call with continuation and no parameter, but last part of continuation is at
+-- head of ctx
+step (ECall (EVal cont@(VCont contEnv contCtx@(x:xs))) [] [], env, a : ctx) = case (a, x) of
+  (_, SBlock _) -> do
+    -- skip over the part of return that will clobber my env
+    return (ECall (EVal (VCont contEnv xs)) [] [], env, a : ctx)
+  (EVal v, SReturn _) -> do
+    -- return value to shift context
+    return (EVal v, env, ctx)
+  _ -> do
+    -- take a step in continuation context
+    (cont', env', ctx') <- step (a, contEnv, contCtx)
+    return (ECall (EVal (VCont env' ctx')) [] [], env, cont' : ctx)
 
 -- Calls of closure, primitive function, and primitive IO functions, assuming arguments evaluated
 step (ECall (EVal (VClosure pars s cloEnv)) [] vs, env, ctx) = do
   return (s, addVars pars (reverse vs) cloEnv, ECall (HoleWithEnv env) [] vs: ctx)
-step (ECall (EVal (VCont contEnv contCtx)) [x] [], env, ctx) = do
-  -- putStrLn "CTX:"
-  -- print ctx
-  -- putStrLn "CONTCTX:"
-  -- print contCtx
-  -- (x', env', ctx') <- step(x, contEnv, contCtx)
-  -- putStrLn $ "XPrime: " ++ (show x')
-  return (x, env, ctx) -- at this point I'm just dropping the ctx
 step (EVal v, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal v, env, ctx)
   -- return statement executed in function
 step (SSkip, _, ECall (HoleWithEnv env) _ _ : ctx) = return (EVal VVoid, env, ctx)
