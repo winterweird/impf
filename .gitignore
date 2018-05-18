@@ -1,3 +1,7 @@
 .cabal-sandbox/*
 dist/*
 *.swp
+ImpFun.cabal
+Setup.hs
+cabal.sandbox.config
+impf.zip
