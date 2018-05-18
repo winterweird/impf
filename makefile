@@ -19,7 +19,9 @@ init:
 	cabal sandbox init && \
 	cabal init && \
 	cabal install parsec && \
-	cabal install pretty
+	cabal install pretty && \
+	cabal build && \
+	ln -s ./dist/build/ImpFun/ImpFun impf
 
 # Build the project
 build:
