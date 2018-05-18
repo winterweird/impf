@@ -15,7 +15,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch finally reset shift spawn detach join"
+           , Token.reservedNames   = words "true false var if else while fun ref return try catch finally reset shift spawn detach join"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -44,6 +44,7 @@ program = do
 statement =
   empty <|>
   ifStmt <|>
+  loneIfStmt <|>
   whileStmt <|>
   block <|>
   returnStmt <|>
@@ -56,10 +57,13 @@ statement =
   exprStmt
 
 empty = semi >> return SSkip
-ifStmt = do
+loneIfStmt = do
   reserved "if"
   e <- parens expr
   s1 <- statement
+  return $ SIf e s1 SSkip 
+ifStmt = try $ do
+  SIf e s1 SSkip <- loneIfStmt
   reserved "else"
   s2 <- statement
   return $ SIf e s1 s2
@@ -95,11 +99,11 @@ tryStmt = do
   exName <- parens identifier
   c <- block
   return $ STry t c SSkip (EVar exName)
-tryStmtWithFinally = do
-  (STry t c SSkip exname) <- tryStmt
+tryStmtWithFinally = try $ do
+  STry t c SSkip exName <- tryStmt
   reserved "finally"
   f <- block
-  return (STry t c f exname)
+  return $ STry t c f exName
 throwStmt = do
   reserved "throw"
   e <- expr
