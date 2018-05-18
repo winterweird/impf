@@ -2,6 +2,26 @@
 
 ## Overview
 
+### Contents
+
+Included in this repo are source code files in src and example programs in
+examples. In the examples directory, there are also .ans files containing the
+test output each program is meant to produce. Included is also this README and a
+makefile for easy building.
+
+There is one new source file apart from what was handed out, Thread.hs
+
+### Build instructions
+
+You could puzzle out how to build this on your own, but if you can run the
+makefile, it should be possible to run `make init` (accepting the defaults
+except for choosing to build an executable), and then run `make build` to build
+the project or `make test` to run the tests. This builds from scratch on my
+Ubuntu 16.04.4 LTS with cabal installed. The instructions in the `make init`
+command are based on the build instructions from the assignment text.
+
+I did not have to modify the build-depends line on my system.
+
 ### Tasks solved:
 - 4.2
 - 4.3
