@@ -191,11 +191,16 @@ step (v, env, SReturn Hole : ctx) | isValue v = return (v, env, ctx)
 step (v, _, SReturn Hole : _) = error $ "trying to return non-value " ++ (show v)
 
 -- Try-catch statement: attempt to evaluate try, or evaluate the catch block
-step (STry t c exName, env, ctx) | notValue t = return (t, env, STry Hole c exName : ctx)
-step (SSkip, env, STry Hole _ _ : ctx) = return (SSkip, env, ctx)
-step (val@(EVal v), env, STry Hole c var@(EVar exName) : ctx) = do
-  return (c, addVar exName v env, STry val (HoleWithEnv env) var : ctx)
-step (SSkip, _, STry _ (HoleWithEnv env) _ : ctx) = return (SSkip, env, ctx)
+step (STry t c f exName, env, ctx) | notValue t = do
+  return (t, env, STry Hole c f exName : ctx)
+step (SSkip, env, STry Hole c f exName : ctx) = do
+  return (f, env, STry SSkip c Hole exName : ctx) -- execute finally
+step (val@(EVal v), env, STry Hole c f var@(EVar exName) : ctx) = do
+  return (c, addVar exName v env, STry val (HoleWithEnv env) f var : ctx)
+step (SSkip, _, STry t (HoleWithEnv env) f exName : ctx) = do
+  return (f, env, STry t SSkip Hole exName : ctx) -- execute finally
+step (SSkip, env, STry t c Hole exName : ctx) = do
+  return (SSkip, env, ctx) -- finally executed
 
 -- Throw statement: evaluate expression, then unwrap until next STry
 step (SThrow v, _, SBlock (HoleWithEnv env) : ctx) = return (SThrow v, env, ctx) -- exit block

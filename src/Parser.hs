@@ -15,7 +15,7 @@ languageDef =
            , Token.commentLine     = "//"
            , Token.identStart      = letter
            , Token.identLetter     = alphaNum
-           , Token.reservedNames   = words "true false var if while fun ref return try catch reset shift spawn detach join"
+           , Token.reservedNames   = words "true false var if while fun ref return try catch finally reset shift spawn detach join"
            , Token.reservedOpNames = words "+ - * / % == != < > <= >= && || ! ="
            }
 
@@ -47,6 +47,7 @@ statement =
   whileStmt <|>
   block <|>
   returnStmt <|>
+  tryStmtWithFinally <|>
   tryStmt <|>
   throwStmt <|>
 
@@ -93,7 +94,12 @@ tryStmt = do
   reserved "catch"
   exName <- parens identifier
   c <- block
-  return $ STry t c (EVar exName)
+  return $ STry t c SSkip (EVar exName)
+tryStmtWithFinally = do
+  (STry t c SSkip exname) <- tryStmt
+  reserved "finally"
+  f <- block
+  return (STry t c f exname)
 throwStmt = do
   reserved "throw"
   e <- expr

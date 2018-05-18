@@ -12,7 +12,7 @@ data Ast =
   | SVarDecl String Expr
   | SExpr Expr
   | SReturn Expr
-  | STry Stmt Stmt Expr
+  | STry Stmt Stmt Stmt Expr
   | SThrow Expr
 
   | EVal Value 
